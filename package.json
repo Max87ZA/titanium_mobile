@@ -1,7 +1,7 @@
 {
   "name": "titanium-mobile",
   "description": "TiDev Titanium Mobile",
-  "version": "12.3.0.carplay",
+  "version": "12.3.1",
   "moduleApiVersion": {
     "iphone": "2",
     "android": "4"

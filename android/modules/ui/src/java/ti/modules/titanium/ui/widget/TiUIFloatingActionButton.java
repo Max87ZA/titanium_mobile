@@ -7,6 +7,7 @@
 package ti.modules.titanium.ui.widget;
 
 import android.content.res.ColorStateList;
+import android.graphics.PorterDuff;
 
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 
@@ -67,6 +68,9 @@ public class TiUIFloatingActionButton extends TiUIView
 				fab.setSize(FloatingActionButton.SIZE_NORMAL);
 			}
 		}
+		if (d.containsKey(TiC.PROPERTY_TINT_COLOR)) {
+			setTintColor(d.getString("tintColor"));
+		}
 	}
 
 	private void setMaxImageSize(int value)
@@ -90,7 +94,11 @@ public class TiUIFloatingActionButton extends TiUIView
 			fab.setImageDrawable(source.getDrawable());
 		}
 	}
-
+	public void setTintColor(String color)
+	{
+		int tintColor = TiConvert.toColor(color, TiApplication.getAppCurrentActivity());
+		fab.setColorFilter(tintColor, PorterDuff.Mode.SRC_IN);
+	}
 	@Override
 	public void propertyChanged(String key, Object oldValue, Object newValue, KrollProxy proxy)
 	{
@@ -106,6 +114,9 @@ public class TiUIFloatingActionButton extends TiUIView
 			ColorStateList colorStateList = null;
 			colorStateList = ColorStateList.valueOf(TiConvert.toColor(newValue, proxy.getActivity()));
 			fab.setRippleColor(colorStateList);
+		}
+		else if (key.equals(TiC.PROPERTY_TINT_COLOR)) {
+			setTintColor(TiConvert.toString(newValue));
 		}
 	}
 }

@@ -74,7 +74,26 @@ public class TiUICollapseToolbar extends TiUIView
 			toolbar = appBarLayout.findViewById(id_toolbar);
 			collapseToolbarLayout = appBarLayout.findViewById(id_toolbarLayout);
 			content = layout.findViewById(id_content);
+			appBarLayout.addOnOffsetChangedListener(new AppBarLayout.OnOffsetChangedListener() {
+				boolean isShow = false;
+				int scrollRange = -1;
 
+				@Override
+				public void onOffsetChanged(AppBarLayout appBarLayout, int verticalOffset)
+				{
+					if (scrollRange == -1) {
+						scrollRange = appBarLayout.getTotalScrollRange();
+					}
+					if (scrollRange + verticalOffset == 0) {
+						isShow = true;
+						
+					} else if (isShow) {
+						isShow = false;
+						hideOption(R.id.action_info);
+					}
+					fireEvent("isShowed", isShow);
+				}
+			});
 			if (barColor != -1) {
 				setBarColor(barColor);
 			}

@@ -791,13 +791,9 @@ public abstract class TiBaseActivity extends AppCompatActivity implements TiActi
 			@Override
 			public void onKeyboardChanged(boolean isVisible, int width, int height, Insets keyboardSize)
 			{
-				if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q
-					&& isVisible != keyboardVisible
-					&& tiApp != null
-					&& tiApp.hasListener("keyboardframechanged")) {
-					KrollDict kdAll = new KrollDict();
-					KrollDict kdFrame = new KrollDict();
+				if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q || tiApp == null) return;
 
+				if (isVisible != keyboardVisible && tiApp.hasListener(TiC.EVENT_KEYBOARD_FRAME_CHANGED)) {
 					KrollDict kdX = new KrollDict();
 					kdX.put("left", keyboardSize.left);
 					kdX.put("right", keyboardSize.right);
@@ -805,13 +801,18 @@ public abstract class TiBaseActivity extends AppCompatActivity implements TiActi
 					KrollDict kdY = new KrollDict();
 					kdX.put("top", keyboardSize.top);
 					kdX.put("bottom", keyboardSize.bottom);
+
+					KrollDict kdFrame = new KrollDict();
 					kdFrame.put("x", kdX);
 					kdFrame.put("y", kdY);
 					kdFrame.put("height", keyboardSize.bottom);
 					kdFrame.put("width", width - keyboardSize.left - keyboardSize.right);
+
+					KrollDict kdAll = new KrollDict();
 					kdAll.put("keyboardFrame", kdFrame);
 					kdAll.put("animationDuration", 0);
-					tiApp.fireAppEvent("keyboardframechanged", kdAll);
+
+					tiApp.fireAppEvent(TiC.EVENT_KEYBOARD_FRAME_CHANGED, kdAll);
 					keyboardVisible = isVisible;
 				}
 			}
@@ -821,7 +822,7 @@ public abstract class TiBaseActivity extends AppCompatActivity implements TiActi
 		try {
 			windowCreated(savedInstanceState);
 		} catch (Throwable t) {
-			Thread.getDefaultUncaughtExceptionHandler().uncaughtException(null, t);
+			TiApplication.handleInternalException(t);
 		}
 
 		// set the current activity back to what it was originally
@@ -848,7 +849,7 @@ public abstract class TiBaseActivity extends AppCompatActivity implements TiActi
 			try {
 				window.onWindowActivityCreated();
 			} catch (Throwable t) {
-				Thread.getDefaultUncaughtExceptionHandler().uncaughtException(null, t);
+				TiApplication.handleInternalException(t);
 			}
 		}
 		if (activityProxy != null) {
@@ -1037,8 +1038,7 @@ public abstract class TiBaseActivity extends AppCompatActivity implements TiActi
 			// Invoke the "onBack" property's callback if assigned.
 			if (this.window.hasProperty(TiC.PROPERTY_ON_BACK) && (this.activityProxy != null)) {
 				Object value = this.window.getProperty(TiC.PROPERTY_ON_BACK);
-				if (value instanceof KrollFunction) {
-					KrollFunction onBackCallback = (KrollFunction) value;
+				if (value instanceof KrollFunction onBackCallback) {
 					onBackCallback.callAsync(activityProxy.getKrollObject(), new Object[] {});
 					hasBackEventHandler = true;
 				}
@@ -1350,7 +1350,37 @@ public abstract class TiBaseActivity extends AppCompatActivity implements TiActi
 
 	public void removeOnLifecycleEventListener(OnLifecycleEvent listener)
 	{
-		// TODO stub
+		lifecycleListeners.remove(listener);
+	}
+
+	public void removeOnInstanceStateEventListener(OnInstanceStateEvent listener)
+	{
+		instanceStateListeners.remove(listener);
+	}
+
+	public void removeOnWindowFocusChangedEventListener(OnWindowFocusChangedEvent listener)
+	{
+		windowFocusChangedListeners.remove(listener);
+	}
+
+	public void removeInterceptOnBackPressedEventListener(interceptOnBackPressedEvent listener)
+	{
+		interceptOnBackPressedListeners.remove(listener);
+	}
+
+	public void removeOnActivityResultListener(OnActivityResultEvent listener)
+	{
+		onActivityResultListeners.remove(listener);
+	}
+
+	public void removeOnCreateOptionsMenuEventListener(OnCreateOptionsMenuEvent listener)
+	{
+		onCreateOptionsMenuListeners.remove(listener);
+	}
+
+	public void removeOnPrepareOptionsMenuEventListener(OnPrepareOptionsMenuEvent listener)
+	{
+		onPrepareOptionsMenuListeners.remove(listener);
 	}
 
 	private void dispatchCallback(String propertyName, KrollDict data)
@@ -1369,7 +1399,7 @@ public abstract class TiBaseActivity extends AppCompatActivity implements TiActi
 			data.put(TiC.EVENT_PROPERTY_SOURCE, this.activityProxy);
 			this.activityProxy.callPropertySync(propertyName, new Object[] { data });
 		} catch (Throwable ex) {
-			Thread.getDefaultUncaughtExceptionHandler().uncaughtException(null, ex);
+			TiApplication.handleInternalException(ex);
 		}
 	}
 
@@ -1701,8 +1731,6 @@ public abstract class TiBaseActivity extends AppCompatActivity implements TiActi
 	@Override
 	protected void onSaveInstanceState(Bundle outState)
 	{
-		super.onSaveInstanceState(outState);
-
 		// If activity is being temporarily destroyed, then save settings to be restored when activity is recreated.
 		if (!isFinishing()) {
 			if (supportHelper != null) {
@@ -1723,6 +1751,8 @@ public abstract class TiBaseActivity extends AppCompatActivity implements TiActi
 				}
 			}
 		}
+
+		super.onSaveInstanceState(outState);
 	}
 
 	@Override
@@ -1869,7 +1899,7 @@ public abstract class TiBaseActivity extends AppCompatActivity implements TiActi
 
 	public void setSustainMode(boolean sustainMode)
 	{
-		if (hasSustainMode() && this.sustainMode != sustainMode) {
+		if (hasSustainMode() && this.sustainMode != sustainMode && Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
 			getWindow().setSustainedPerformanceMode(sustainMode);
 			this.sustainMode = sustainMode;
 		} else {

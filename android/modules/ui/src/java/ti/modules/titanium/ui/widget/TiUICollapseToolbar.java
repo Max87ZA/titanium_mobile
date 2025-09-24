@@ -89,9 +89,11 @@ public class TiUICollapseToolbar extends TiUIView
 						
 					} else if (isShow) {
 						isShow = false;
-						hideOption(R.id.action_info);
+						// hideOption(R.id.action_info);
 					}
-					fireEvent("isShowed", isShow);
+					KrollDict dict = new KrollDict();
+					dict.put("isShowed", isShow);
+					fireEvent("isShowed", dict);
 				}
 			});
 			if (barColor != -1) {

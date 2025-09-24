@@ -18,6 +18,7 @@ import android.view.Window;
 import android.view.WindowInsets;
 
 import org.appcelerator.titanium.TiApplication;
+import org.appcelerator.titanium.TiC;
 
 import java.util.ArrayList;
 
@@ -114,9 +115,11 @@ public class TiActivitySafeAreaMonitor
 			@Override
 			public WindowInsets onApplyWindowInsets(View view, WindowInsets insets)
 			{
+				TiApplication tiApp = TiApplication.getInstance();
+
 				if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R
 					&& tiApp != null
-					&& tiApp.hasListener("keyboardframechanged")
+					&& tiApp.hasListener(TiC.EVENT_KEYBOARD_FRAME_CHANGED)
 				) {
 					boolean keyboardVisible = insets.isVisible(WindowInsets.Type.ime());
 					Insets keyboardSize = insets.getInsets(WindowInsets.Type.ime());

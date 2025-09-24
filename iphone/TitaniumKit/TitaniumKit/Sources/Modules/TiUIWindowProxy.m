@@ -237,10 +237,6 @@
 
 - (void)viewWillTransitionToSize:(CGSize)size withTransitionCoordinator:(id<UIViewControllerTransitionCoordinator>)coordinator
 {
-  [self performSelector:@selector(processForSafeArea)
-             withObject:nil
-             afterDelay:[[UIApplication sharedApplication] statusBarOrientationAnimationDuration]];
-
   [self performSelector:@selector(updateStatusBarView)
              withObject:nil
              afterDelay:[[UIApplication sharedApplication] statusBarOrientationAnimationDuration]];
@@ -737,7 +733,6 @@
       ^{
         if (controller != nil) {
           [controller setHidesBottomBarWhenPushed:[TiUtils boolValue:value]];
-          [self processForSafeArea];
         }
       },
       NO);
@@ -1129,7 +1124,7 @@
   return self.safeAreaViewProxy;
 }
 
-- (void)processForSafeArea
+- (BOOL)processForSafeArea
 {
   [self setValue:@{ @"top" : NUMFLOAT(0.0),
     @"left" : NUMFLOAT(0.0),
@@ -1140,8 +1135,12 @@
   UIEdgeInsets edgeInsets = UIEdgeInsetsZero;
   UIEdgeInsets safeAreaInset = UIEdgeInsetsZero;
 
-  UIViewController<TiControllerContainment> *topContainerController = [[[TiApp app] controller] topContainerController];
-  safeAreaInset = [[topContainerController hostingView] safeAreaInsets];
+  if (self.isManaged && self.tab) {
+    // Prefer safe area from our own controller hierarchy so tab/nav containers are respected.
+    safeAreaInset = self.hostingController.view.safeAreaInsets;
+  } else {
+    safeAreaInset = TiApp.controller.topContainerController.hostingView.safeAreaInsets;
+  }
 
   if (self.tabGroup) {
     edgeInsets = [self tabGroupEdgeInsetsForSafeAreaInset:safeAreaInset];
@@ -1151,18 +1150,17 @@
     edgeInsets = [self defaultEdgeInsetsForSafeAreaInset:safeAreaInset];
   }
 
-  if (self.shouldExtendSafeArea) {
-    [self setValue:@{ @"top" : NUMFLOAT(edgeInsets.top),
-      @"left" : NUMFLOAT(edgeInsets.left),
-      @"bottom" : NUMFLOAT(edgeInsets.bottom),
-      @"right" : NUMFLOAT(edgeInsets.right) }
-            forKey:@"safeAreaPadding"];
+  [self setValue:@{ @"top" : NUMFLOAT(edgeInsets.top),
+    @"left" : NUMFLOAT(edgeInsets.left),
+    @"bottom" : NUMFLOAT(edgeInsets.bottom),
+    @"right" : NUMFLOAT(edgeInsets.right) }
+          forKey:@"safeAreaPadding"];
 
-    if (!UIEdgeInsetsEqualToEdgeInsets(edgeInsets, oldSafeAreaInsets)) {
-      self.safeAreaInsetsUpdated = YES;
-    }
-    oldSafeAreaInsets = edgeInsets;
-    return;
+  BOOL safeAreaInsetsChanged = !UIEdgeInsetsEqualToEdgeInsets(edgeInsets, oldSafeAreaInsets);
+  oldSafeAreaInsets = edgeInsets;
+
+  if (self.shouldExtendSafeArea) {
+    return safeAreaInsetsChanged;
   }
 
   TiViewProxy *safeAreaProxy = [self safeAreaViewProxy];
@@ -1183,6 +1181,8 @@
   if (!oldRight || [oldRight floatValue] != edgeInsets.right) {
     [safeAreaProxy setRight:NUMFLOAT(edgeInsets.right)];
   }
+
+  return safeAreaInsetsChanged;
 }
 
 - (UIEdgeInsets)tabGroupEdgeInsetsForSafeAreaInset:(UIEdgeInsets)safeAreaInset
@@ -1203,12 +1203,10 @@
       edgeInsets.right = safeAreaInset.right;
     }
   }
-  if ([TiUtils boolValue:[self valueForUndefinedKey:@"navBarHidden"] def:NO]) {
-    edgeInsets.top = safeAreaInset.top;
-  }
-  if ([TiUtils boolValue:[self valueForUndefinedKey:@"tabBarHidden"] def:NO]) {
-    edgeInsets.bottom = safeAreaInset.bottom;
-  }
+
+  edgeInsets.top = safeAreaInset.top;
+  edgeInsets.bottom = safeAreaInset.bottom;
+
   return edgeInsets;
 }
 
@@ -1230,9 +1228,7 @@
       edgeInsets.right = safeAreaInset.right;
     }
   }
-  if ([TiUtils boolValue:[self valueForUndefinedKey:@"navBarHidden"] def:NO]) {
-    edgeInsets.top = safeAreaInset.top;
-  }
+  edgeInsets.top = safeAreaInset.top;
   edgeInsets.bottom = safeAreaInset.bottom;
   return edgeInsets;
 }

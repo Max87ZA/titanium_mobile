@@ -9,6 +9,7 @@ package ti.modules.titanium.ui.android;
 import android.app.Activity;
 
 import org.appcelerator.kroll.KrollFunction;
+import org.appcelerator.kroll.KrollDict;
 import org.appcelerator.kroll.annotations.Kroll;
 import org.appcelerator.titanium.TiApplication;
 import org.appcelerator.titanium.TiC;
@@ -16,6 +17,7 @@ import org.appcelerator.titanium.proxy.TiViewProxy;
 import org.appcelerator.titanium.util.TiConvert;
 import org.appcelerator.titanium.view.TiDrawableReference;
 import org.appcelerator.titanium.view.TiUIView;
+import android.graphics.drawable.Drawable;
 
 import ti.modules.titanium.ui.widget.TiUICollapseToolbar;
 
@@ -111,11 +113,32 @@ public class CollapseToolbarProxy extends TiViewProxy
 	@Kroll.method
 	public void addMenuItem(KrollDict d)
 	{
-		int itemId = d.getInt("itemId");
-		String title = d.getString("title");
-		boolean showAsAction = d.getBoolean("showAsAction");
-		int iconResId = TiDrawableReference.fromObject(this, image).getBitmap(false)
-		collapseToolbar.addMenuItem(itemId, title, iconResId, showAsAction);
+
+		int itemId = d.optInt("itemId", 0);
+		String title = d.optString("title", "");
+		boolean showAsAction = d.optBoolean("showAsAction", false);
+
+		// Try to resolve image if provided
+		if (d.containsKey("image") && d.get("image") != null) {
+			TiDrawableReference ref = TiDrawableReference.fromObject(this, d.get("image"));
+
+			if (ref != null) {
+				// Fast path: if it’s a real Android resource, use the int overload
+				// if (ref.isTypeResourceId()) {
+				// 	int resId = ref.getResourceId();
+				// 	collapseToolbar.addMenuItem(itemId, title, resId, showAsAction);
+				// 	return;
+				// }
+
+				// Asset/file/blob/url → use Drawable overload
+				Drawable icon = ref.getDrawable();
+				collapseToolbar.addMenuItem(itemId, title, icon, showAsAction);
+				return;
+			}
+		}
+
+		// No icon
+		collapseToolbar.addMenuItem(itemId, title, (Drawable) null, showAsAction);
 	}
 
 	@Kroll.method

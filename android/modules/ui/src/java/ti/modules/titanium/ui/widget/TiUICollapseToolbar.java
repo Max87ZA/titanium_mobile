@@ -34,6 +34,7 @@ import org.appcelerator.titanium.util.TiConvert;
 import org.appcelerator.titanium.util.TiRHelper;
 import org.appcelerator.titanium.view.TiCompositeLayout;
 import org.appcelerator.titanium.view.TiDrawableReference;
+import android.graphics.drawable.Drawable;
 import org.appcelerator.titanium.view.TiUIView;
 
 public class TiUICollapseToolbar extends TiUIView
@@ -281,15 +282,17 @@ public class TiUICollapseToolbar extends TiUIView
 			setNavigationIconColor(TiConvert.toColor(d.getString(TiC.PROPERTY_NAVIGATION_ICON_COLOR), activity));
 		}
 	}
-	public void addMenuItem(int itemId, String title, int image, boolean showAsAction)
+	public void addMenuItem(int itemId, String title, Drawable icon, boolean showAsAction)
 	{
 		if (toolbar != null) {
 			Menu menu = toolbar.getMenu();
 			MenuItem item = menu.add(Menu.NONE, itemId, Menu.NONE, title);
-			if (image != null) {
-				item.setIcon(image);
+			if (icon != null) {
+				item.setIcon(icon); // accepts Drawable
 			}
-			item.setShowAsAction(showAsAction ? MenuItem.SHOW_AS_ACTION_ALWAYS : MenuItem.SHOW_AS_ACTION_NEVER);
+			item.setShowAsAction(showAsAction
+				? MenuItem.SHOW_AS_ACTION_ALWAYS
+				: MenuItem.SHOW_AS_ACTION_NEVER);
 		}
 	}
 

@@ -281,12 +281,14 @@ public class TiUICollapseToolbar extends TiUIView
 			setNavigationIconColor(TiConvert.toColor(d.getString(TiC.PROPERTY_NAVIGATION_ICON_COLOR), activity));
 		}
 	}
-	public void addMenuItem(int itemId, String title, boolean showAsAction)
+	public void addMenuItem(int itemId, String title, int image, boolean showAsAction)
 	{
 		if (toolbar != null) {
 			Menu menu = toolbar.getMenu();
 			MenuItem item = menu.add(Menu.NONE, itemId, Menu.NONE, title);
-			// item.setIcon(iconResId);
+			if (image != null) {
+				item.setIcon(image);
+			}
 			item.setShowAsAction(showAsAction ? MenuItem.SHOW_AS_ACTION_ALWAYS : MenuItem.SHOW_AS_ACTION_NEVER);
 		}
 	}

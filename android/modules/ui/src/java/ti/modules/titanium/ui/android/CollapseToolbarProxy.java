@@ -102,11 +102,20 @@ public class CollapseToolbarProxy extends TiViewProxy
 		collapseToolbar.setNavigationIconColor(TiConvert.toColor(value, TiApplication.getAppCurrentActivity()));
 	}
 	
+	// @Kroll.method
+	// public void addMenuItem(int itemId, String title, boolean showAsAction)
+	// {
+	// 	// int iconResId = TiDrawableReference.fromObject(this, iconPath).getBitmap(false)
+	// 	collapseToolbar.addMenuItem(itemId, title, showAsAction);
+	// }
 	@Kroll.method
-	public void addMenuItem(int itemId, String title, boolean showAsAction)
+	public void addMenuItem(KrollDict d)
 	{
-		// int iconResId = TiDrawableReference.fromObject(this, iconPath).getBitmap(false)
-		collapseToolbar.addMenuItem(itemId, title, showAsAction);
+		int itemId = d.getInt("itemId");
+		String title = d.getString("title");
+		boolean showAsAction = d.getBoolean("showAsAction");
+		int iconResId = TiDrawableReference.fromObject(this, image).getBitmap(false)
+		collapseToolbar.addMenuItem(itemId, title, iconResId, showAsAction);
 	}
 
 	@Kroll.method

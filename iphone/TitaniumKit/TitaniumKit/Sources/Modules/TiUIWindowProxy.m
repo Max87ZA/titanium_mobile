@@ -1,5 +1,5 @@
 /**
- * Appcelerator Titanium Mobile
+ * Titanium SDK
  * Copyright TiDev, Inc. 04/07/2022-Present. All Rights Reserved.
  * Licensed under the terms of the Apache Public License
  * Please see the LICENSE included with this distribution for details.
@@ -18,8 +18,8 @@
 // attempt to hold it for a small period of time to allow the window
 // to loaded before we return from the open such that the paint will be
 // much smoother on the new window during a tab transition
-#define EXTERNAL_JS_WAIT_TIME (150 / 1000)
-
+// #define EXTERNAL_JS_WAIT_TIME (150 / 1000)
+static const NSTimeInterval EXTERNAL_JS_WAIT_TIME = 0.15;
 /**
  * This class is a helper that will be used when we have an external
  * window w/ JS so that we can attempt to wait for the window context
@@ -148,7 +148,7 @@
   [super dealloc];
 }
 
-- (void)boot:(BOOL)timeout args:args
+- (void)boot:(BOOL)timeout args:(id)args
 {
   RELEASE_TO_NIL(latch);
   if (timeout) {
@@ -315,23 +315,26 @@
 
 - (void)setNavTintColor:(id)color
 {
-  __block TiColor *newColor = [TiUtils colorValue:color];
+  TiColor *initial = [[TiUtils colorValue:color] retain];
+  [self replaceValue:initial forKey:@"navTintColor" notification:NO];
 
-  [self replaceValue:newColor forKey:@"navTintColor" notification:NO];
-  TiThreadPerformOnMainThread(
-      ^{
-        if (controller != nil) {
-          if (newColor == nil) {
-            // Get from TabGroup
-            newColor = [TiUtils colorValue:[[self tabGroup] valueForKey:@"navTintColor"]];
-          }
-          UINavigationBar *navBar = [[controller navigationController] navigationBar];
-          [navBar setTintColor:[newColor color]];
-          [self performSelector:@selector(refreshBackButton) withObject:nil afterDelay:0.0];
-        }
-      },
-      NO);
+  TiThreadPerformOnMainThread(^{
+    TiColor *newColor = initial;
+    if (controller != nil) {
+      if (newColor == nil) {
+        newColor = [[TiUtils colorValue:[[self tabGroup] valueForKey:@"navTintColor"]] retain];
+      } else {
+        [newColor retain];
+      }
+      UINavigationBar *navBar = [[controller navigationController] navigationBar];
+      [navBar setTintColor:[newColor color]];
+      [self performSelector:@selector(refreshBackButton) withObject:nil afterDelay:0.0];
+      [newColor release];
+    }
+    [initial release];
+  }, NO);
 }
+
 
 - (void)setBarColor:(id)color
 {
@@ -401,10 +404,10 @@
   if (shouldUpdateNavBar && ([controller navigationController] != nil)) {
     UINavigationBar *navigationBar = controller.navigationController.navigationBar;
     if ([TiUtils boolValue:[self valueForKey:@"largeTitleEnabled"] def:NO]) {
-      //      if ([self shouldUseNavBarApperance]) {
-      //        navigationBar.standardAppearance.largeTitleTextAttributes = theAttributes;
-      //        navigationBar.scrollEdgeAppearance.largeTitleTextAttributes = theAttributes;
-      //      }
+      if ([self shouldUseNavBarApperance]) {
+        navigationBar.standardAppearance.largeTitleTextAttributes = theAttributes;
+        navigationBar.scrollEdgeAppearance.largeTitleTextAttributes = theAttributes;
+      }
       navigationBar.largeTitleTextAttributes = theAttributes;
     }
     if ([self shouldUseNavBarApperance]) {
@@ -414,12 +417,14 @@
     navigationBar.titleTextAttributes = theAttributes;
   }
 }
+
 - (void)setLargeTitleAttributes:(id)args
 {
   ENSURE_UI_THREAD(setLargeTitleAttributes, args);
   ENSURE_SINGLE_ARG_OR_NIL(args, NSDictionary);
   [self replaceValue:args forKey:@"largeTitleAttributes" notification:NO];
 
+  // Fallback to TabGroup defaults if nil
   if (args == nil) {
     args = [[self tabGroup] valueForUndefinedKey:@"largeTitleAttributes"];
   }
@@ -427,12 +432,14 @@
   NSMutableDictionary *theAttributes = nil;
   if (args != nil) {
     theAttributes = [NSMutableDictionary dictionary];
+
     if ([args objectForKey:@"color"] != nil) {
       UIColor *theColor = [[TiUtils colorValue:@"color" properties:args] _color];
       if (theColor != nil) {
         [theAttributes setObject:theColor forKey:NSForegroundColorAttributeName];
       }
     }
+
     if ([args objectForKey:@"shadow"] != nil) {
       NSShadow *shadow = [TiUtils shadowValue:[args objectForKey:@"shadow"]];
       if (shadow != nil) {
@@ -454,11 +461,14 @@
 
   if (shouldUpdateNavBar && ([controller navigationController] != nil)) {
     UINavigationBar *navigationBar = controller.navigationController.navigationBar;
+
     if ([TiUtils boolValue:[self valueForKey:@"largeTitleEnabled"] def:NO]) {
+      // Apply via appearance on iOS 13+ if we're using it
       if ([self shouldUseNavBarApperance]) {
         navigationBar.standardAppearance.largeTitleTextAttributes = theAttributes;
         navigationBar.scrollEdgeAppearance.largeTitleTextAttributes = theAttributes;
       }
+      // Also set legacy property for compatibility
       navigationBar.largeTitleTextAttributes = theAttributes;
     }
   }
@@ -950,7 +960,9 @@
   [self replaceValue:value forKey:@"hidesSearchBarWhenScrolling" notification:NO];
 
   if (shouldUpdateNavBar && controller != nil && [controller navigationController] != nil) {
-    [controller navigationItem].hidesSearchBarWhenScrolling = [TiUtils intValue:value def:YES];
+    // [controller navigationItem].hidesSearchBarWhenScrolling = [TiUtils intValue:value def:YES];
+    [controller navigationItem].hidesSearchBarWhenScrolling = [TiUtils boolValue:value def:YES];
+
   }
 }
 - (void)setTitlePrompt:(NSString *)title_

@@ -1,12 +1,9 @@
 import path from 'node:path';
 import fs from 'fs-extra';
-import { promisify } from 'node:util';
-import glob from 'glob';
+import { glob } from 'glob';
 import { spawn } from 'node:child_process';  // eslint-disable-line security/detect-child-process
 import { copyFiles, copyAndModifyFile } from './utils.js';
 import { fileURLToPath } from 'node:url';
-
-const globPromise = promisify(glob);
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -64,7 +61,7 @@ export class IOS {
 
 		return new Promise((resolve, reject) => {
 			const buildScript = path.join(ROOT_DIR, 'support/iphone/build_titaniumkit.sh');
-			const child = spawn(buildScript, [ '-v', this.sdkVersion, '-t', this.timestamp, '-h', this.gitHash ], { stdio: 'inherit' });
+			const child = spawn(buildScript, [ '-v', this.sdkVersion, '-t', this.timestamp, '-h', this.gitHash, '-d' ], { stdio: 'inherit' });
 			child.on('error', reject);
 			child.on('close', code => {
 				if (code) {
@@ -107,7 +104,7 @@ export class IOS {
 			await fs.ensureDir(path.join(DEST_IOS, 'include', libDir));
 			const libFiles = await fs.readdir(fullLibDir);
 			for (const libFile of libFiles) {
-				if (libFile.endsWith('.h') && libFile !== 'APSUtility.h') { // for whatever reason APSUtility.h seems not to get copied as part of framework?
+				if (libFile.endsWith('.h')) {
 					await fs.move(path.join(DEST_IOS, 'include', libFile), path.join(DEST_IOS, 'include', libDir, libFile));
 				}
 			}
@@ -115,7 +112,7 @@ export class IOS {
 
 		// Create redirecting headers in iphone/include/ pointing to iphone/Classes/ headers
 		// TODO: Use map and Promise.all to run these in parallel
-		const classesHeaders = await globPromise('**/*.h', { cwd: path.join(IOS_ROOT, 'Classes') });
+		const classesHeaders = await glob('**/*.h', { cwd: path.join(IOS_ROOT, 'Classes') });
 		for (const classHeader of classesHeaders) {
 			let depth = 1;
 			if (classHeader.includes(path.sep)) { // there's a sub-directory

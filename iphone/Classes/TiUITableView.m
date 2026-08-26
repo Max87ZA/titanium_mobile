@@ -1437,18 +1437,27 @@
   return height;
 }
 
+- (void)updateDimmingViewFrame
+{
+  if (isSearchBarInNavigation) {
+    dimmingView.frame = CGRectMake(0, 0, self.frame.size.width, self.frame.size.height);
+  } else {
+    // Keep the search bar itself uncovered, otherwise the dimming view also dims
+    // the search field and its cancel button.
+    CGFloat dimmingViewTopMargin = self.safeAreaInsets.top + searchController.searchBar.frame.size.height;
+    CGFloat dimmingViewHeight = self.frame.size.height - dimmingViewTopMargin;
+
+    [dimmingView setFrame:CGRectMake(0, dimmingViewTopMargin, self.frame.size.width, dimmingViewHeight)];
+  }
+}
+
 - (void)updateSearchControllerFrames
 {
   if (![searchController isActive]) {
     return;
   }
-  if (isSearchBarInNavigation) {
-    dimmingView.frame = CGRectMake(0, 0, self.frame.size.width, self.frame.size.height);
-  } else {
-    CGFloat dimmingViewTopMargin = searchController.searchBar.frame.size.height + searchController.view.safeAreaInsets.top;
-    CGFloat dimmingViewHeight = self.frame.size.height - searchController.searchBar.frame.size.height;
-
-    [dimmingView setFrame:CGRectMake(0, dimmingViewTopMargin, self.frame.size.width, dimmingViewHeight)];
+  [self updateDimmingViewFrame];
+  if (!isSearchBarInNavigation) {
     CGPoint convertedOrigin = [self.superview convertPoint:self.frame.origin toView:searchControllerPresenter.view];
 
     UIView *searchSuperView = [searchController.view superview];
@@ -1901,6 +1910,11 @@
 - (void)setShowVerticalScrollIndicator_:(id)value
 {
   [[self tableView] setShowsVerticalScrollIndicator:[TiUtils boolValue:value]];
+}
+
+- (void)setSnapping_:(id)value
+{
+  snapping = [TiUtils boolValue:value def:NO];
 }
 
 - (void)setSearchHidden_:(id)hide
@@ -2519,7 +2533,7 @@
 
 - (void)showDimmingView
 {
-  dimmingView.frame = CGRectMake(0, 0, self.frame.size.width, self.frame.size.height);
+  [self updateDimmingViewFrame];
   if (!dimmingView.superview) {
     [self addSubview:dimmingView];
     [self bringSubviewToFront:dimmingView];
@@ -2541,10 +2555,8 @@
 {
   NSDictionary *userInfo = [notification userInfo];
   CGRect keyboardEndFrame = [[userInfo objectForKey:UIKeyboardFrameEndUserInfoKey] CGRectValue];
-  CGPoint convertedOrigin = [self.superview convertPoint:self.frame.origin toView:searchControllerPresenter.view];
-
-  CGRect mainScreenBounds = [[UIScreen mainScreen] bounds];
-  CGFloat height = keyboardEndFrame.origin.y - mainScreenBounds.size.height < 0 ? keyboardEndFrame.origin.y - convertedOrigin.y : keyboardEndFrame.origin.y;
+  CGRect convertedFrame = [[[TiApp app] topMostView] convertRect:keyboardEndFrame fromView:nil];
+  CGFloat height = convertedFrame.origin.y;
 
   [self keyboardDidShowAtHeight:height];
 }
@@ -2553,10 +2565,8 @@
 {
   NSDictionary *userInfo = [notification userInfo];
   CGRect keyboardEndFrame = [[userInfo objectForKey:UIKeyboardFrameEndUserInfoKey] CGRectValue];
-  CGPoint convertedOrigin = [self.superview convertPoint:self.frame.origin toView:searchControllerPresenter.view];
-
-  CGRect mainScreenBounds = [[UIScreen mainScreen] bounds];
-  CGFloat height = keyboardEndFrame.origin.y - mainScreenBounds.size.height < 0 ? keyboardEndFrame.origin.y - convertedOrigin.y : keyboardEndFrame.origin.y;
+  CGRect convertedFrame = [[[TiApp app] topMostView] convertRect:keyboardEndFrame fromView:nil];
+  CGFloat height = convertedFrame.origin.y;
 
   [self keyboardDidShowAtHeight:height];
 }
@@ -2803,12 +2813,18 @@
 
 - (void)keyboardDidShowAtHeight:(CGFloat)keyboardTop
 {
+  if ([searchController isActive]) {
+    return;
+  }
   CGRect minimumContentRect = [tableview bounds];
   InsetScrollViewForKeyboard(tableview, keyboardTop, minimumContentRect.size.height + minimumContentRect.origin.y);
 }
 
 - (void)scrollToShowView:(TiUIView *)firstResponderView withKeyboardHeight:(CGFloat)keyboardTop
 {
+  if ([searchController isActive]) {
+    return;
+  }
   if ([tableview isScrollEnabled]) {
     CGRect minimumContentRect = [tableview bounds];
 
@@ -2909,6 +2925,39 @@
   }
   if ([self.proxy _hasListeners:@"dragstart"]) {
     [self.proxy fireEvent:@"dragstart" withObject:nil];
+  }
+}
+
+// Mirrors Android's LinearSnapHelper by aligning the row nearest the centre of
+// the viewport with that centre once the scroll comes to rest.
+- (void)snapTargetContentOffset:(inout CGPoint *)targetContentOffset
+{
+  UITableView *table = [self tableView];
+  UIEdgeInsets inset = table.adjustedContentInset;
+  CGFloat viewportHeight = table.bounds.size.height - inset.top - inset.bottom;
+
+  if (viewportHeight <= 0 || table.contentSize.height <= 0) {
+    return;
+  }
+
+  CGFloat proposedCenter = targetContentOffset->y + inset.top + (viewportHeight / 2.0);
+  NSIndexPath *indexPath = [table indexPathForRowAtPoint:CGPointMake(CGRectGetMidX(table.bounds), proposedCenter)];
+
+  // No row under the resting centre, ie. a header or footer. Leave the offset alone.
+  if (indexPath == nil) {
+    return;
+  }
+
+  CGFloat snapped = CGRectGetMidY([table rectForRowAtIndexPath:indexPath]) - (viewportHeight / 2.0) - inset.top;
+  CGFloat maxOffset = MAX(-inset.top, table.contentSize.height - viewportHeight - inset.top);
+
+  targetContentOffset->y = MIN(MAX(snapped, -inset.top), maxOffset);
+}
+
+- (void)scrollViewWillEndDragging:(UIScrollView *)scrollView withVelocity:(CGPoint)velocity targetContentOffset:(inout CGPoint *)targetContentOffset
+{
+  if (snapping) {
+    [self snapTargetContentOffset:targetContentOffset];
   }
 }
 
